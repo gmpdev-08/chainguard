@@ -53,12 +53,62 @@ def create_custody_record(file_path, examiner_name):
     print(f"[+] Success! Chain of custody record generated: {output_filename}")
     return record
 
+def verify_evidence(file_path, custody_json_path):
+    """Verifies if a current file matches the cryptographic hashes stored in its custody record."""
+    if not os.path.exists(file_path) or not os.path.exists(custody_json_path):
+        print(f"[!] Error: File or custody JSON path not found.")
+        return
+        
+    print(f"[*] Loading custody record: {custody_json_path}")
+    with open(custody_json_path, "r", encoding="utf-8") as f:
+        custody_data = json.load(f)
+        
+    stored_hashes = custody_data["evidence_details"]
+    
+    print(f"[*] Recalculating current hashes for: {file_path}")
+    current_hashes = calculate_hashes(file_path)
+    
+    print("\n--- INTEGRITY VERIFICATION REPORT ---")
+    match = True
+    
+    for algo in ["md5", "sha1", "sha256"]:
+        stored_val = stored_hashes[algo]
+        current_val = current_hashes[algo]
+        is_equal = (stored_val == current_val)
+        status = "MATCH [VALID]" if is_equal else "MISMATCH [ALERTS: TAMPERED OR MODIFIED]"
+        print(f"[{algo.upper()}]")
+        print(f"  Stored:  {stored_val}")
+        print(f"  Current: {current_val}")
+        print(f"  Status:  {status}\n")
+        
+        if not is_equal:
+            match = False
+            
+    if match:
+        print("[+] VERIFICATION SUCCESSFUL: The evidence integrity is intact. No tampering detected.")
+    else:
+        print("[!] ALERT: Evidence integrity failure! Hashes do not match. Potential data tampering.")
+
 if __name__ == "__main__":
     print("=== ChainGuard - Digital Evidence Integrity Utility ===")
-    target_file = input("Enter path to evidence file: ").strip()
-    examiner = input("Forensic Examiner Name: ").strip()
+    print("1. Create Chain of Custody Record")
+    print("2. Verify Evidence Integrity")
+    choice = input("Select an option (1 or 2): ").strip()
     
-    if target_file and examiner:
-        create_custody_record(target_file, examiner)
+    if choice == "1":
+        target_file = input("Enter path to evidence file: ").strip()
+        examiner = input("Forensic Examiner Name: ").strip()
+        if target_file and examiner:
+            create_custody_record(target_file, examiner)
+        else:
+            print("[!] Please fill in all required fields correctly.")
+            
+    elif choice == "2":
+        target_file = input("Enter path to the current file to check: ").strip()
+        custody_json = input("Enter path to the custody JSON record file: ").strip()
+        if target_file and custody_json:
+            verify_evidence(target_file, custody_json)
+        else:
+            print("[!] Please fill in all required fields correctly.")
     else:
-        print("[!] Please fill in all required fields correctly.")
+        print("[!] Invalid option.")
